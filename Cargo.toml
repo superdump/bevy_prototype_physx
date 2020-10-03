@@ -1,0 +1,10 @@
+[package]
+name = "bevy_prototype_physx"
+version = "0.1.0"
+authors = ["Robert Swain <robert.swain@gmail.com>"]
+edition = "2018"
+license = "MIT"
+
+[dependencies]
+bevy = "0.2.1"
+physx = "0.7.1"
