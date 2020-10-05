@@ -1,11 +1,11 @@
-use bevy::{
-    input::system::exit_on_esc_system,
-    prelude::*,
-};
+use bevy::{input::system::exit_on_esc_system, prelude::*};
+use bevy_prototype_physx::*;
 
 fn main() {
     App::build()
+        .add_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .add_default_plugins()
+        .add_plugin(PhysXPlugin)
         .add_startup_system(spawn_scene.system())
         .add_system(exit_on_esc_system.system())
         .run();
@@ -25,28 +25,50 @@ fn spawn_scene(
         subdivisions: 5,
     }));
 
-    commands.spawn(PbrComponents {
-        material: grey,
-        mesh: ground_plane,
-        transform: Transform::from_non_uniform_scale(Vec3::new(10.0, 1.0, 10.0)),
-        ..Default::default()
-    })
-    .spawn(PbrComponents {
-        material: teal,
-        mesh: sphere,
-        transform: Transform::from_translation(Vec3::new(0.0, 7.5, 0.0)),
-        ..Default::default()
-    })
-    .spawn(LightComponents {
-        transform: Transform::from_translation(Vec3::new(-5.0, 15.0, -5.0)),
-        ..Default::default()
-    })
-    .spawn(Camera3dComponents {
-        transform: Transform::new(Mat4::face_toward(
-            Vec3::new(-10.0, 10.0, -10.0),
-            Vec3::new(5.0, 0.0, 5.0),
-            Vec3::unit_y(),
-        )),
-        ..Default::default()
-    });
+    commands
+        .spawn(PbrComponents {
+            material: grey,
+            mesh: ground_plane,
+            transform: Transform::from_non_uniform_scale(Vec3::new(10.0, 1.0, 10.0)),
+            ..Default::default()
+        })
+        .with_bundle((
+            PhysXMaterialDesc {
+                static_friction: 0.5,
+                dynamic_friction: 0.5,
+                restitution: 0.6,
+            },
+            PhysXColliderDesc::Box(5.0, 0.5, 5.0),
+            PhysXRigidBodyDesc::Static,
+        ))
+        .spawn(PbrComponents {
+            material: teal,
+            mesh: sphere,
+            transform: Transform::from_translation(Vec3::new(0.0, 7.5, 0.0)),
+            ..Default::default()
+        })
+        .with_bundle((
+            PhysXMaterialDesc {
+                static_friction: 0.5,
+                dynamic_friction: 0.5,
+                restitution: 0.6,
+            },
+            PhysXColliderDesc::Sphere(0.5),
+            PhysXRigidBodyDesc::Dynamic {
+                density: 10.0,
+                angular_damping: 0.5,
+            },
+        ))
+        .spawn(LightComponents {
+            transform: Transform::from_translation(Vec3::new(-5.0, 15.0, -5.0)),
+            ..Default::default()
+        })
+        .spawn(Camera3dComponents {
+            transform: Transform::new(Mat4::face_toward(
+                Vec3::new(-10.0, 10.0, -10.0),
+                Vec3::new(5.0, 0.0, 5.0),
+                Vec3::unit_y(),
+            )),
+            ..Default::default()
+        });
 }
