@@ -89,14 +89,18 @@ pub struct PhysXDynamicRigidBodyHandle(pub physx::prelude::BodyHandle);
 fn physx_create_body_material_collider(
     mut commands: Commands,
     mut physx: ResMut<PhysX>,
-    entity: Entity,
-    material_desc: &PhysXMaterialDesc,
-    collider_desc: &PhysXColliderDesc,
-    body_desc: &PhysXRigidBodyDesc,
-    transform: &Transform,
+    mut query: Query<(
+        Entity,
+        &PhysXMaterialDesc,
+        &PhysXColliderDesc,
+        &PhysXRigidBodyDesc,
+        &Transform,
+    )>,
 ) {
-    if let Some(physics) = &physx.physics {
-        let material = physics.write().unwrap().create_material(
+    let mut physics = physx.physics.as_mut().expect("Failed to get Physics").clone();
+    let mut physics_write = physics.write().expect("Failed to get Physics write lock");
+    for (entity, material_desc, collider_desc, body_desc, transform) in &mut query.iter() {
+        let material = physics_write.create_material(
             material_desc.static_friction,
             material_desc.dynamic_friction,
             material_desc.restitution,
@@ -117,7 +121,7 @@ fn physx_create_body_material_collider(
                 );
                 println!("scale: {:#?}", Mat4::from_scale(scale));
                 let actor = unsafe {
-                    physics.write().unwrap().create_static(
+                    physics_write.create_static(
                         Mat4::identity(),  //Mat4::from_rotation_translation(rotation, translation),
                         geometry.as_raw(), // todo: this should take the PhysicsGeometry straight.
                         material,
@@ -136,7 +140,7 @@ fn physx_create_body_material_collider(
                 let (scale, rotation, translation) =
                     transform.value().to_scale_rotation_translation();
                 let mut actor = unsafe {
-                    physics.write().unwrap().create_dynamic(
+                    physics_write.create_dynamic(
                         Mat4::from_rotation_translation(rotation, translation),
                         geometry.as_raw(), // todo: this should take the PhysicsGeometry straight.
                         material,
