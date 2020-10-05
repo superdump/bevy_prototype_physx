@@ -173,10 +173,12 @@ fn physx_step_simulation(time: Res<Time>, mut physx: ResMut<PhysX>) {
 
 fn physx_sync_transforms(
     physx: Res<PhysX>,
-    body_handle: &PhysXDynamicRigidBodyHandle,
-    mut transform: Mut<Transform>,
+    mut query: Query<(&PhysXDynamicRigidBodyHandle, Mut<Transform>)>,
 ) {
-    *transform = Transform::new(
-        unsafe { physx.scene.get_rigid_actor_unchecked(&body_handle.0) }.get_global_pose(),
-    );
+    // FIXME - this only works for bodies on top-level entities
+    for (body_handle, mut transform) in &mut query.iter() {
+        *transform = Transform::new(
+            unsafe { physx.scene.get_rigid_actor_unchecked(&body_handle.0) }.get_global_pose(),
+        );
+    }
 }
