@@ -4,6 +4,7 @@ use bevy_prototype_physx::*;
 fn main() {
     App::build()
         .add_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
+        .add_resource(Msaa { samples: 4 })
         .add_default_plugins()
         .add_plugin(PhysXPlugin)
         .add_startup_system(spawn_scene.system())
