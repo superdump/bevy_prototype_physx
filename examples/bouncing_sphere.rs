@@ -19,12 +19,14 @@ fn spawn_scene(
 ) {
     let grey = materials.add(Color::hex("808080").unwrap().into());
     let teal = materials.add(Color::hex("008080").unwrap().into());
+    let purple = materials.add(Color::hex("800080").unwrap().into());
 
     let ground_plane = meshes.add(Mesh::from(shape::Cube { size: 0.5 }));
     let sphere = meshes.add(Mesh::from(shape::Icosphere {
         radius: 0.5,
         subdivisions: 5,
     }));
+    let cube = meshes.add(Mesh::from(shape::Cube { size: 0.3 }));
 
     commands
         .spawn(PbrComponents {
@@ -43,9 +45,13 @@ fn spawn_scene(
             PhysXRigidBodyDesc::Static,
         ))
         .spawn(PbrComponents {
-            material: teal,
-            mesh: sphere,
-            transform: Transform::from_translation(Vec3::new(0.0, 7.5, 0.0)),
+            material: purple,
+            mesh: cube,
+            transform: Transform::new(Mat4::from_scale_rotation_translation(
+                Vec3::new(1.0, 1.75, 1.0),
+                Quat::identity(),
+                Vec3::new(0.0, 1.0, 0.0),
+            )),
             ..Default::default()
         })
         .with_bundle((
@@ -54,10 +60,10 @@ fn spawn_scene(
                 dynamic_friction: 0.5,
                 restitution: 0.6,
             },
-            PhysXColliderDesc::Sphere(0.5),
-            PhysXRigidBodyDesc::Dynamic {
-                density: 10.0,
-                angular_damping: 0.5,
+            PhysXCapsuleControllerDesc {
+                height: 1.75,
+                radius: 0.3,
+                step_offset: 0.5,
             },
         ))
         .spawn(LightComponents {
@@ -72,4 +78,34 @@ fn spawn_scene(
             )),
             ..Default::default()
         });
+
+    for y in 0..5 {
+        for z in 0..5 {
+            for x in 0..5 {
+                commands
+                    .spawn(PbrComponents {
+                        material: teal,
+                        mesh: sphere,
+                        transform: Transform::from_translation(Vec3::new(
+                            -2.5 + x as f32,
+                            7.5 + y as f32,
+                            -2.5 + z as f32,
+                        )),
+                        ..Default::default()
+                    })
+                    .with_bundle((
+                        PhysXMaterialDesc {
+                            static_friction: 0.5,
+                            dynamic_friction: 0.5,
+                            restitution: 0.6,
+                        },
+                        PhysXColliderDesc::Sphere(0.5),
+                        PhysXRigidBodyDesc::Dynamic {
+                            density: 10.0,
+                            angular_damping: 0.5,
+                        },
+                    ));
+            }
+        }
+    }
 }
