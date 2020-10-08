@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use physx::traits::Releasable;
-use std::sync::{Arc, RwLock, RwLockWriteGuard};
 
 pub struct PhysXPlugin;
 
@@ -26,33 +25,28 @@ impl Plugin for PhysXPlugin {
 }
 
 const PX_PHYSICS_VERSION: u32 = physx::version(4, 1, 1);
+
 pub struct PhysX {
-    foundation: Arc<RwLock<physx::prelude::Foundation>>,
-    physics: Option<Arc<RwLock<physx::prelude::Physics>>>,
-    scene: Box<physx::prelude::Scene>,
+    foundation: physx::prelude::Foundation,
+    pub physics: std::mem::ManuallyDrop<physx::prelude::Physics>,
+    pub scene: Box<physx::prelude::Scene>,
 }
 
 impl Default for PhysX {
     fn default() -> Self {
-        let foundation = Arc::new(RwLock::new(physx::prelude::Foundation::new(
-            PX_PHYSICS_VERSION,
-        )));
+        let mut foundation = physx::prelude::Foundation::new(PX_PHYSICS_VERSION);
 
-        let physics = Some(Arc::new(RwLock::new(
+        let mut physics = std::mem::ManuallyDrop::new(
             physx::prelude::PhysicsBuilder::default()
                 .load_extensions(false)
-                .build(&mut *foundation.write().unwrap()),
-        )));
+                .build(&mut foundation),
+        );
 
-        let scene = if let Some(ref physics) = physics {
-            physics.write().unwrap().create_scene(
-                physx::prelude::SceneBuilder::default()
-                    .use_controller_manager(true, true)
-                    .set_simulation_threading(physx::prelude::SimulationThreadType::Dedicated(1)),
-            )
-        } else {
-            panic!("FAIL");
-        };
+        let scene = physics.create_scene(
+            physx::prelude::SceneBuilder::default()
+                .use_controller_manager(true, true)
+                .set_simulation_threading(physx::prelude::SimulationThreadType::Dedicated(1)),
+        );
         PhysX {
             foundation,
             physics,
@@ -65,14 +59,10 @@ impl Drop for PhysX {
     fn drop(&mut self) {
         unsafe {
             self.scene.release();
+            std::mem::ManuallyDrop::drop(&mut self.physics);
         }
 
-        {
-            let physics = self.physics.take();
-            drop(physics);
-        }
-
-        self.foundation.write().unwrap().release();
+        self.foundation.release();
     }
 }
 
@@ -108,39 +98,27 @@ impl Default for PhysXCapsuleControllerDesc {
     }
 }
 
+pub type PhysXController = physx::prelude::Controller;
+
 fn physx_create_character_controller(
     mut commands: Commands,
     mut physx: ResMut<PhysX>,
-    mut query: Query<(
+    mut query_controller: Query<(
         Entity,
         &PhysXCapsuleControllerDesc,
         &PhysXMaterialDesc,
-        &PhysXColliderDesc,
-        &PhysXRigidBodyDesc,
         &Transform,
     )>,
 ) {
-    let physics = physx
-        .physics
-        .as_mut()
-        .expect("Failed to get Physics")
-        .clone();
-    let mut physics_write = physics.write().expect("Failed to get Physics write lock");
-    for (
-        entity,
-        physx_capsule_controller_desc,
-        material_desc,
-        collider_desc,
-        body_desc,
-        transform,
-    ) in &mut query.iter()
+    for (entity, physx_capsule_controller_desc, material_desc, transform) in
+        &mut query_controller.iter()
     {
-        let material = physics_write.create_material(
+        let material = physx.physics.create_material(
             material_desc.static_friction,
             material_desc.dynamic_friction,
             material_desc.restitution,
         );
-        let capsule_controller = physx
+        let mut capsule_controller = physx
             .scene
             .add_capsule_controller(
                 &physx::controller::CapsuleControllerDesc::new(
@@ -152,21 +130,10 @@ fn physx_create_character_controller(
                 .expect("Failed to create capsule controller"),
             )
             .expect("Failed to add capsule controller to scene");
-        create_body_collider(
-            entity,
-            collider_desc,
-            body_desc,
-            material,
-            transform,
-            &mut physics_write,
-            &mut physx,
-            &mut commands,
-        );
+        capsule_controller.set_position(transform.translation());
         commands.insert_one(entity, capsule_controller);
         commands.remove_one::<PhysXCapsuleControllerDesc>(entity);
         commands.remove_one::<PhysXMaterialDesc>(entity);
-        commands.remove_one::<PhysXColliderDesc>(entity);
-        commands.remove_one::<PhysXRigidBodyDesc>(entity);
     }
 }
 
@@ -181,14 +148,8 @@ fn physx_create_body_material_collider(
         &Transform,
     )>,
 ) {
-    let physics = physx
-        .physics
-        .as_mut()
-        .expect("Failed to get Physics")
-        .clone();
-    let mut physics_write = physics.write().expect("Failed to get Physics write lock");
     for (entity, material_desc, collider_desc, body_desc, transform) in &mut query.iter() {
-        let material = physics_write.create_material(
+        let material = physx.physics.create_material(
             material_desc.static_friction,
             material_desc.dynamic_friction,
             material_desc.restitution,
@@ -199,7 +160,6 @@ fn physx_create_body_material_collider(
             body_desc,
             material,
             transform,
-            &mut physics_write,
             &mut physx,
             &mut commands,
         );
@@ -215,17 +175,16 @@ fn create_body_collider(
     body_desc: &PhysXRigidBodyDesc,
     material: *mut physx_sys::PxMaterial,
     transform: &Transform,
-    physics_write: &mut RwLockWriteGuard<physx::prelude::Physics>,
     physx: &mut PhysX,
     commands: &mut Commands,
 ) {
     let geometry = physx::prelude::PhysicsGeometry::from(collider_desc);
     match body_desc {
         PhysXRigidBodyDesc::Static => {
-            let (scale, rotation, translation) = transform.value().to_scale_rotation_translation();
+            // let (scale, rotation, translation) = transform.value().to_scale_rotation_translation();
             // FIXME - are non-uniform scales disallowed???
             let actor = unsafe {
-                physics_write.create_static(
+                physx.physics.create_static(
                     Mat4::identity(),  //Mat4::from_rotation_translation(rotation, translation),
                     geometry.as_raw(), // todo: this should take the PhysicsGeometry straight.
                     material,
@@ -243,7 +202,7 @@ fn create_body_collider(
         } => {
             let (scale, rotation, translation) = transform.value().to_scale_rotation_translation();
             let mut actor = unsafe {
-                physics_write.create_dynamic(
+                physx.physics.create_dynamic(
                     Mat4::from_rotation_translation(rotation, translation),
                     geometry.as_raw(), // todo: this should take the PhysicsGeometry straight.
                     material,
@@ -271,11 +230,11 @@ fn physx_step_simulation(time: Res<Time>, mut physx: ResMut<PhysX>) {
 }
 
 fn physx_sync_transforms(
-    physx: Res<PhysX>,
-    mut query: Query<(&PhysXDynamicRigidBodyHandle, Mut<Transform>)>,
+    physx: ResMut<PhysX>,
+    mut query_transforms: Query<(&PhysXDynamicRigidBodyHandle, Mut<Transform>)>,
 ) {
     // FIXME - this only works for bodies on top-level entities
-    for (body_handle, mut transform) in &mut query.iter() {
+    for (body_handle, mut transform) in &mut query_transforms.iter() {
         *transform = Transform::new(
             unsafe { physx.scene.get_rigid_actor_unchecked(&body_handle.0) }.get_global_pose(),
         );
