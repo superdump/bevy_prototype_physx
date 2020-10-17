@@ -16,7 +16,6 @@ impl Plugin for PhysXPlugin {
                 bevy::app::stage::PRE_UPDATE,
                 physx_create_character_controller.system(),
             )
-            .add_system_to_stage_front(bevy::app::stage::UPDATE, physx_control_character.system())
             .add_system_to_stage(bevy::app::stage::UPDATE, physx_step_simulation.system())
             .add_system_to_stage(
                 bevy::app::stage::POST_UPDATE,
@@ -217,35 +216,6 @@ fn create_body_collider(
                 PhysXDynamicRigidBodyHandle(physx.scene.add_dynamic(actor)),
             );
         }
-    }
-}
-
-fn physx_control_character(
-    time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
-    mut _physx: ResMut<PhysX>, // For synchronization
-    mut controller: Mut<PhysXController>,
-    mut transform: Mut<Transform>,
-) {
-    let mut translation = Vec3::zero();
-    if keyboard_input.pressed(KeyCode::W) {
-        translation += Vec3::unit_z();
-    }
-    if keyboard_input.pressed(KeyCode::S) {
-        translation -= Vec3::unit_z();
-    }
-    if keyboard_input.pressed(KeyCode::A) {
-        translation += Vec3::unit_x();
-    }
-    if keyboard_input.pressed(KeyCode::D) {
-        translation -= Vec3::unit_x();
-    }
-    if translation.length_squared() > 1e-5 {
-        let translation = translation.normalize() * 5.0 * time.delta_seconds;
-        let position = controller.get_position();
-        let new_position = position + translation;
-        controller.set_position(new_position);
-        transform.translate(translation);
     }
 }
 
