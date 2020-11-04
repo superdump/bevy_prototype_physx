@@ -5,7 +5,7 @@ fn main() {
     App::build()
         .add_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .add_resource(Msaa { samples: 4 })
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .add_plugin(PhysXPlugin)
         .add_startup_system(spawn_scene.system())
         .add_system(exit_on_esc_system.system())
@@ -33,7 +33,7 @@ fn spawn_scene(
         .spawn(PbrComponents {
             material: grey,
             mesh: ground_plane,
-            transform: Transform::from_non_uniform_scale(Vec3::new(10.0, 1.0, 10.0)),
+            transform: Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)),
             ..Default::default()
         })
         .with_bundle((
@@ -48,10 +48,10 @@ fn spawn_scene(
         .spawn(PbrComponents {
             material: purple,
             mesh: cube,
-            transform: Transform::new(Mat4::from_scale_rotation_translation(
+            transform: Transform::from_matrix(Mat4::from_scale_rotation_translation(
                 Vec3::new(1.0, 1.75, 1.0),
                 Quat::identity(),
-                Vec3::new(0.0, 1.0, 0.0),
+                Vec3::new(0.0, 1.0 + 0.6 * 1.75, 0.0),
             )),
             ..Default::default()
         })
@@ -72,7 +72,7 @@ fn spawn_scene(
             ..Default::default()
         })
         .spawn(Camera3dComponents {
-            transform: Transform::new(Mat4::face_toward(
+            transform: Transform::from_matrix(Mat4::face_toward(
                 Vec3::new(-10.0, 10.0, -10.0),
                 Vec3::new(5.0, 0.0, 5.0),
                 Vec3::unit_y(),
@@ -85,8 +85,8 @@ fn spawn_scene(
             for x in 0..5 {
                 commands
                     .spawn(PbrComponents {
-                        material: teal,
-                        mesh: sphere,
+                        material: teal.clone(),
+                        mesh: sphere.clone(),
                         transform: Transform::from_translation(Vec3::new(
                             -2.5 + x as f32,
                             7.5 + y as f32,
@@ -136,6 +136,6 @@ fn physx_control_character(
         let position = controller.get_position();
         let new_position = position + translation;
         controller.set_position(new_position);
-        transform.translate(translation);
+        transform.translation = translation;
     }
 }

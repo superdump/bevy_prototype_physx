@@ -103,15 +103,14 @@ pub type PhysXController = physx::prelude::Controller;
 fn physx_create_character_controller(
     mut commands: Commands,
     mut physx: ResMut<PhysX>,
-    mut query_controller: Query<(
+    query_controller: Query<(
         Entity,
         &PhysXCapsuleControllerDesc,
         &PhysXMaterialDesc,
         &Transform,
     )>,
 ) {
-    for (entity, physx_capsule_controller_desc, material_desc, transform) in
-        &mut query_controller.iter()
+    for (entity, physx_capsule_controller_desc, material_desc, transform) in query_controller.iter()
     {
         let material = physx.physics.create_material(
             material_desc.static_friction,
@@ -130,7 +129,7 @@ fn physx_create_character_controller(
                 .expect("Failed to create capsule controller"),
             )
             .expect("Failed to add capsule controller to scene");
-        capsule_controller.set_position(transform.translation());
+        capsule_controller.set_position(transform.translation);
         commands.insert_one(entity, capsule_controller);
         commands.remove_one::<PhysXCapsuleControllerDesc>(entity);
         commands.remove_one::<PhysXMaterialDesc>(entity);
@@ -140,7 +139,7 @@ fn physx_create_character_controller(
 fn physx_create_body_material_collider(
     mut commands: Commands,
     mut physx: ResMut<PhysX>,
-    mut query: Query<(
+    query: Query<(
         Entity,
         &PhysXMaterialDesc,
         &PhysXColliderDesc,
@@ -148,7 +147,7 @@ fn physx_create_body_material_collider(
         &Transform,
     )>,
 ) {
-    for (entity, material_desc, collider_desc, body_desc, transform) in &mut query.iter() {
+    for (entity, material_desc, collider_desc, body_desc, transform) in query.iter() {
         let material = physx.physics.create_material(
             material_desc.static_friction,
             material_desc.dynamic_friction,
@@ -200,14 +199,13 @@ fn create_body_collider(
             density,
             angular_damping,
         } => {
-            let (scale, rotation, translation) = transform.value().to_scale_rotation_translation();
             let mut actor = unsafe {
                 physx.physics.create_dynamic(
-                    Mat4::from_rotation_translation(rotation, translation),
+                    Mat4::from_rotation_translation(transform.rotation, transform.translation),
                     geometry.as_raw(), // todo: this should take the PhysicsGeometry straight.
                     material,
                     *density,
-                    Mat4::from_scale(scale),
+                    Mat4::from_scale(transform.scale),
                 )
             };
             actor.set_angular_damping(*angular_damping);
@@ -234,8 +232,8 @@ fn physx_sync_transforms(
     mut query_transforms: Query<(&PhysXDynamicRigidBodyHandle, Mut<Transform>)>,
 ) {
     // FIXME - this only works for bodies on top-level entities
-    for (body_handle, mut transform) in &mut query_transforms.iter() {
-        *transform = Transform::new(
+    for (body_handle, mut transform) in query_transforms.iter_mut() {
+        *transform = Transform::from_matrix(
             unsafe { physx.scene.get_rigid_actor_unchecked(&body_handle.0) }.get_global_pose(),
         );
     }
