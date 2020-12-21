@@ -6,6 +6,6 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
-bevy = "0.3.0"
+bevy = "0.4.0"
 physx = { git = "https://github.com/superdump/physx-rs", branch = "send-sync-and-locks" }
 physx-sys = { git = "https://github.com/superdump/physx-rs", branch = "send-sync-and-locks" }

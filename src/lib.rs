@@ -6,13 +6,13 @@ pub struct PhysXPlugin;
 impl Plugin for PhysXPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<PhysX>()
-            .add_system_to_stage_front(
+            .add_system_to_stage(
                 bevy::app::stage::PRE_UPDATE,
                 physx_create_body_material_collider.system(),
             )
             // This is intentionally added after but to the front to come before
             // the general body/material/collider creation system
-            .add_system_to_stage_front(
+            .add_system_to_stage(
                 bevy::app::stage::PRE_UPDATE,
                 physx_create_character_controller.system(),
             )
@@ -101,7 +101,7 @@ impl Default for PhysXCapsuleControllerDesc {
 pub type PhysXController = physx::prelude::Controller;
 
 fn physx_create_character_controller(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut physx: ResMut<PhysX>,
     query_controller: Query<(
         Entity,
@@ -137,7 +137,7 @@ fn physx_create_character_controller(
 }
 
 fn physx_create_body_material_collider(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut physx: ResMut<PhysX>,
     query: Query<(
         Entity,
@@ -218,8 +218,8 @@ fn create_body_collider(
 }
 
 fn physx_step_simulation(time: Res<Time>, mut physx: ResMut<PhysX>) {
-    if time.delta_seconds > 0.0 {
-        physx.scene.simulate(time.delta_seconds);
+    if time.delta_seconds() > 0.0 {
+        physx.scene.simulate(time.delta_seconds());
         physx
             .scene
             .fetch_results(true)
