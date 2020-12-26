@@ -17,10 +17,7 @@ impl Plugin for PhysXPlugin {
                 physx_create_character_controller.system(),
             )
             .add_system_to_stage(bevy::app::stage::UPDATE, physx_step_simulation.system())
-            .add_system_to_stage(
-                bevy::app::stage::POST_UPDATE,
-                physx_sync_transforms.system(),
-            );
+            .add_system_to_stage(bevy::app::stage::UPDATE, physx_sync_transforms.system());
     }
 }
 
