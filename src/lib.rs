@@ -160,7 +160,7 @@ fn physx_create_body_material_collider(
             material,
             transform,
             &mut physx,
-            &mut commands,
+            commands,
         );
         commands.remove_one::<PhysXMaterialDesc>(entity);
         commands.remove_one::<PhysXColliderDesc>(entity);

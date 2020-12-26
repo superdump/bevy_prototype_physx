@@ -9,12 +9,12 @@ fn main() {
         .add_plugin(PhysXPlugin)
         .add_startup_system(spawn_scene.system())
         .add_system(exit_on_esc_system.system())
-        .add_system_to_stage_front(bevy::app::stage::UPDATE, physx_control_character.system())
+        .add_system_to_stage(bevy::app::stage::UPDATE, physx_control_character.system())
         .run();
 }
 
 fn spawn_scene(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -30,7 +30,7 @@ fn spawn_scene(
     let cube = meshes.add(Mesh::from(shape::Cube { size: 0.3 }));
 
     commands
-        .spawn(PbrComponents {
+        .spawn(PbrBundle {
             material: grey,
             mesh: ground_plane,
             transform: Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)),
@@ -45,7 +45,7 @@ fn spawn_scene(
             PhysXColliderDesc::Box(5.0, 0.5, 5.0),
             PhysXRigidBodyDesc::Static,
         ))
-        .spawn(PbrComponents {
+        .spawn(PbrBundle {
             material: purple,
             mesh: cube,
             transform: Transform::from_matrix(Mat4::from_scale_rotation_translation(
@@ -67,11 +67,11 @@ fn spawn_scene(
                 step_offset: 0.5,
             },
         ))
-        .spawn(LightComponents {
+        .spawn(LightBundle {
             transform: Transform::from_translation(Vec3::new(-5.0, 15.0, -5.0)),
             ..Default::default()
         })
-        .spawn(Camera3dComponents {
+        .spawn(Camera3dBundle {
             transform: Transform::from_matrix(Mat4::face_toward(
                 Vec3::new(-10.0, 10.0, -10.0),
                 Vec3::new(5.0, 0.0, 5.0),
@@ -84,7 +84,7 @@ fn spawn_scene(
         for z in 0..5 {
             for x in 0..5 {
                 commands
-                    .spawn(PbrComponents {
+                    .spawn(PbrBundle {
                         material: teal.clone(),
                         mesh: sphere.clone(),
                         transform: Transform::from_translation(Vec3::new(
@@ -115,27 +115,28 @@ fn physx_control_character(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mut _physx: ResMut<PhysX>, // For synchronization
-    mut controller: Mut<PhysXController>,
-    mut transform: Mut<Transform>,
+    mut query: Query<(&mut PhysXController, &mut Transform)>,
 ) {
-    let mut translation = Vec3::zero();
-    if keyboard_input.pressed(KeyCode::W) {
-        translation += Vec3::unit_z();
-    }
-    if keyboard_input.pressed(KeyCode::S) {
-        translation -= Vec3::unit_z();
-    }
-    if keyboard_input.pressed(KeyCode::A) {
-        translation += Vec3::unit_x();
-    }
-    if keyboard_input.pressed(KeyCode::D) {
-        translation -= Vec3::unit_x();
-    }
-    if translation.length_squared() > 1e-5 {
-        let translation = translation.normalize() * 5.0 * time.delta_seconds;
-        let position = controller.get_position();
-        let new_position = position + translation;
-        controller.set_position(new_position);
-        transform.translation = translation;
+    for (mut controller, mut transform) in query.iter_mut() {
+        let mut translation = Vec3::zero();
+        if keyboard_input.pressed(KeyCode::W) {
+            translation += Vec3::unit_z();
+        }
+        if keyboard_input.pressed(KeyCode::S) {
+            translation -= Vec3::unit_z();
+        }
+        if keyboard_input.pressed(KeyCode::A) {
+            translation += Vec3::unit_x();
+        }
+        if keyboard_input.pressed(KeyCode::D) {
+            translation -= Vec3::unit_x();
+        }
+        if translation.length_squared() > 1e-5 {
+            let translation = translation.normalize() * 5.0 * time.delta_seconds();
+            let position = controller.get_position();
+            let new_position = position + translation;
+            controller.set_position(new_position);
+            transform.translation = translation;
+        }
     }
 }
