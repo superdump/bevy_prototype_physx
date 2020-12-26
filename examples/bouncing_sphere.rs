@@ -22,12 +22,12 @@ fn spawn_scene(
     let teal = materials.add(Color::hex("008080").unwrap().into());
     let purple = materials.add(Color::hex("800080").unwrap().into());
 
-    let ground_plane = meshes.add(Mesh::from(shape::Cube { size: 0.5 }));
+    let ground_plane = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let sphere = meshes.add(Mesh::from(shape::Icosphere {
         radius: 0.5,
         subdivisions: 5,
     }));
-    let cube = meshes.add(Mesh::from(shape::Cube { size: 0.3 }));
+    let cube = meshes.add(Mesh::from(shape::Cube { size: 0.6 }));
 
     commands
         .spawn(PbrBundle {
@@ -51,7 +51,7 @@ fn spawn_scene(
             transform: Transform::from_matrix(Mat4::from_scale_rotation_translation(
                 Vec3::new(1.0, 1.75, 1.0),
                 Quat::identity(),
-                Vec3::new(0.0, 1.0 + 0.6 * 1.75, 0.0),
+                Vec3::new(0.0, 0.6 * 1.75, 0.0),
             )),
             ..Default::default()
         })
@@ -73,7 +73,7 @@ fn spawn_scene(
         })
         .spawn(Camera3dBundle {
             transform: Transform::from_matrix(Mat4::face_toward(
-                Vec3::new(-10.0, 10.0, -10.0),
+                Vec3::new(-10.0, 0.5, -10.0),
                 Vec3::new(5.0, 0.0, 5.0),
                 Vec3::unit_y(),
             )),
