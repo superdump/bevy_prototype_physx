@@ -7,17 +7,17 @@ impl Plugin for PhysXPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<PhysX>()
             .add_system_to_stage(
-                bevy::app::stage::PRE_UPDATE,
+                bevy::app::CoreStage::PreUpdate,
                 physx_create_body_material_collider.system(),
             )
             // This is intentionally added after but to the front to come before
             // the general body/material/collider creation system
             .add_system_to_stage(
-                bevy::app::stage::PRE_UPDATE,
+                bevy::app::CoreStage::PreUpdate,
                 physx_create_character_controller.system(),
             )
-            .add_system_to_stage(bevy::app::stage::UPDATE, physx_step_simulation.system())
-            .add_system_to_stage(bevy::app::stage::UPDATE, physx_sync_transforms.system());
+            .add_system_to_stage(bevy::app::CoreStage::Update, physx_step_simulation.system())
+            .add_system_to_stage(bevy::app::CoreStage::Update, physx_sync_transforms.system());
     }
 }
 
@@ -98,7 +98,7 @@ impl Default for PhysXCapsuleControllerDesc {
 pub type PhysXController = physx::prelude::Controller;
 
 fn physx_create_character_controller(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut physx: ResMut<PhysX>,
     query_controller: Query<(
         Entity,
@@ -127,14 +127,16 @@ fn physx_create_character_controller(
             )
             .expect("Failed to add capsule controller to scene");
         capsule_controller.set_position(transform.translation);
-        commands.insert_one(entity, capsule_controller);
-        commands.remove_one::<PhysXCapsuleControllerDesc>(entity);
-        commands.remove_one::<PhysXMaterialDesc>(entity);
+        commands
+            .entity(entity)
+            .insert(capsule_controller)
+            .remove::<PhysXCapsuleControllerDesc>()
+            .remove::<PhysXMaterialDesc>();
     }
 }
 
 fn physx_create_body_material_collider(
-    commands: &mut Commands,
+    mut commands: Commands,
     mut physx: ResMut<PhysX>,
     query: Query<(
         Entity,
@@ -157,11 +159,13 @@ fn physx_create_body_material_collider(
             material,
             transform,
             &mut physx,
-            commands,
+            &mut commands,
         );
-        commands.remove_one::<PhysXMaterialDesc>(entity);
-        commands.remove_one::<PhysXColliderDesc>(entity);
-        commands.remove_one::<PhysXRigidBodyDesc>(entity);
+        commands
+            .entity(entity)
+            .remove::<PhysXMaterialDesc>()
+            .remove::<PhysXColliderDesc>()
+            .remove::<PhysXRigidBodyDesc>();
     }
 }
 
@@ -181,16 +185,15 @@ fn create_body_collider(
             // FIXME - are non-uniform scales disallowed???
             let actor = unsafe {
                 physx.physics.create_static(
-                    Mat4::identity(),  //Mat4::from_rotation_translation(rotation, translation),
+                    Mat4::IDENTITY,  //Mat4::from_rotation_translation(rotation, translation),
                     geometry.as_raw(), // todo: this should take the PhysicsGeometry straight.
                     material,
-                    Mat4::identity(), //Mat4::from_scale(scale),
+                    Mat4::IDENTITY, //Mat4::from_scale(scale),
                 )
             };
-            commands.insert_one(
-                entity,
-                PhysXStaticRigidBodyHandle(physx.scene.add_actor(actor)),
-            );
+            commands
+                .entity(entity)
+                .insert(PhysXStaticRigidBodyHandle(physx.scene.add_actor(actor)));
         }
         PhysXRigidBodyDesc::Dynamic {
             density,
@@ -206,10 +209,9 @@ fn create_body_collider(
                 )
             };
             actor.set_angular_damping(*angular_damping);
-            commands.insert_one(
-                entity,
-                PhysXDynamicRigidBodyHandle(physx.scene.add_dynamic(actor)),
-            );
+            commands
+                .entity(entity)
+                .insert(PhysXDynamicRigidBodyHandle(physx.scene.add_dynamic(actor)));
         }
     }
 }
@@ -226,7 +228,7 @@ fn physx_step_simulation(time: Res<Time>, mut physx: ResMut<PhysX>) {
 
 fn physx_sync_transforms(
     physx: ResMut<PhysX>,
-    mut query_transforms: Query<(&PhysXDynamicRigidBodyHandle, Mut<Transform>)>,
+    mut query_transforms: Query<(&PhysXDynamicRigidBodyHandle, &mut Transform)>,
 ) {
     // FIXME - this only works for bodies on top-level entities
     for (body_handle, mut transform) in query_transforms.iter_mut() {
